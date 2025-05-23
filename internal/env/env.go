@@ -20,10 +20,6 @@ type Env struct {
 	ScreenDebug bool
 	// ScreenResolution is the resolution of the screen.
 	ScreenResolution int
-	// MotionThreshold is the minimum difference to consider as motion.
-	MotionThreshold float64
-	// MotionDebug is whether to debug the motion package.
-	MotionDebug bool
 }
 
 // NewEnv creates a new Env instance.
@@ -53,24 +49,12 @@ func NewEnv() (*Env, error) {
 		return nil, err
 	}
 
-	motionThreshold, err := lookupFloat("MOTION_THRESHOLD")
-	if err != nil {
-		return nil, err
-	}
-
-	motionDebug, err := lookupBool("MOTION_DEBUG")
-	if err != nil {
-		return nil, err
-	}
-
 	return &Env{
 		BrowserWSURL:     browserWSURL,
 		GameURL:          gameURL,
 		LapTimeout:       lapTimeout,
 		ScreenDebug:      screenDebug,
 		ScreenResolution: screenResolution,
-		MotionThreshold:  motionThreshold,
-		MotionDebug:      motionDebug,
 	}, nil
 }
 
@@ -99,15 +83,6 @@ func lookupInt(key string) (int, error) {
 	}
 
 	return strconv.Atoi(value)
-}
-
-func lookupFloat(key string) (float64, error) {
-	value, err := lookup(key)
-	if err != nil {
-		return 0, err
-	}
-
-	return strconv.ParseFloat(value, 64)
 }
 
 func lookupDuration(key string, unitTime time.Duration) (time.Duration, error) {
