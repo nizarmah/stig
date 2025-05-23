@@ -1,0 +1,22 @@
+# ignore everything
+*
+
+# except
+!.gitignore
+
+!example.env
+
+!README.md
+
+!go.mod
+!go.sum
+
+!Makefile
+
+!*.go
+
+!cmd
+!cmd/stig
+
+!internal
+!internal/env
