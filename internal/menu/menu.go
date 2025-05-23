@@ -1,30 +1,29 @@
-// Package menu provides functions to interact with the menu.
+// Package menu provides functions to interact with the game menu.
 package menu
 
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/input"
 )
 
-// Manager manages the game menu.
-type Manager struct {
+// Client controls the game menu.
+type Client struct {
 	// Page is the page of the game.
 	page *rod.Page
 }
 
-// NewManager creates a new manager.
-func NewManager(page *rod.Page) (*Manager, error) {
-	return &Manager{page: page}, nil
+// NewClient creates a new manager.
+func NewClient(page *rod.Page) *Client {
+	return &Client{page: page}
 }
 
 // StartGame starts the game by clicking the "Start" button.
-func (m *Manager) StartGame() error {
+func (c *Client) StartGame() error {
 	// Press "Enter" to start the game.
-	pressEnter := m.page.KeyActions().Type(input.Enter)
+	pressEnter := c.page.KeyActions().Type(input.Enter)
 	if err := pressEnter.Do(); err != nil {
 		return fmt.Errorf("failed to start game: %w", err)
 	}
@@ -33,15 +32,10 @@ func (m *Manager) StartGame() error {
 }
 
 // ResetGame resets the game before the current one ends.
-func (m *Manager) ResetGame() error {
-	// Press "Escape" to open the initial menu again.
-	pressEscape := m.page.KeyActions().Type(input.Escape)
-	if err := pressEscape.Do(); err != nil {
-		return fmt.Errorf("failed to press escape: %w", err)
-	}
-
-	// Start the game.
-	if err := m.StartGame(); err != nil {
+func (c *Client) ResetGame() error {
+	// Press "Delete" to instantly reset the game.
+	pressDelete := c.page.KeyActions().Type(input.Delete)
+	if err := pressDelete.Do(); err != nil {
 		return fmt.Errorf("failed to reset game: %w", err)
 	}
 
@@ -49,9 +43,9 @@ func (m *Manager) ResetGame() error {
 }
 
 // GetReplayTime retrieves the final game time shown on the Replay screen.
-func (m *Manager) GetReplayTime() (string, error) {
+func (c *Client) GetReplayTime() (string, error) {
 	// Target the deepest child with the time value (has aria-label)
-	el, err := m.page.Element(`div[data-your-time="true"] div[aria-label]`)
+	el, err := c.page.Element(`div[data-your-time="true"] div[aria-label]`)
 	if err != nil {
 		return "", fmt.Errorf("failed to find time element: %w", err)
 	}
@@ -66,20 +60,15 @@ func (m *Manager) GetReplayTime() (string, error) {
 }
 
 // WaitForFinish waits for the game to finish and signals when it does.
-func (m *Manager) WaitForFinish(
-	ctx context.Context,
-	interval time.Duration,
-) error {
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-
+func (c *Client) WaitForFinish(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			return ctx.Err() // timeout, cancel, or interrupt
-		case <-ticker.C:
-			if el, _ := m.page.Element(`div[data-your-time="true"]`); el != nil {
-				return nil // game finished
+			return ctx.Err()
+
+		default:
+			if el, _ := c.page.Element(`div[data-your-time="true"]`); el != nil {
+				return nil
 			}
 		}
 	}

@@ -20,5 +20,8 @@
 
 !internal
 !internal/env
-!internal/menu
 !internal/game
+!internal/menu
+!internal/controller
+!internal/screen
+!internal/agent

@@ -10,11 +10,12 @@ import (
 	"time"
 
 	"github.com/go-rod/rod"
-	"github.com/go-rod/rod/lib/proto"
 
+	"github.com/nizarmah/stig/internal/agent"
+	"github.com/nizarmah/stig/internal/controller"
 	"github.com/nizarmah/stig/internal/env"
-	"github.com/nizarmah/stig/internal/game"
 	"github.com/nizarmah/stig/internal/menu"
+	"github.com/nizarmah/stig/internal/screen"
 )
 
 func main() {
@@ -39,40 +40,35 @@ func main() {
 	// defer browser.Close()
 
 	// Open the game.
-	page, err := openGame(ctx, browser, e.GameURL, 10*time.Second)
+	page, err := menu.NewGame(ctx, browser, e.GameURL, 10*time.Second)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer page.Close()
 
-	// Create the menu manager.
-	menu, err := menu.NewManager(page)
-	if err != nil {
-		log.Fatal(err)
-	}
+	// Create the menu, controller, and screen clients.
+	menuClient := menu.NewClient(page)
+	controllerClient := controller.NewClient(page)
+	screenClient := screen.NewClient(page)
 
-	// Create the game player.
-	player, err := game.NewPlayer(page)
-	if err != nil {
-		log.Fatal(err)
-	}
+	// Create the agent client.
+	agentClient := agent.NewClient(
+		controllerClient,
+		screenClient,
+	)
 
-	for {
-		select {
-		case <-ctx.Done():
-			log.Println("Shutting down gracefully.")
-			return
-		default:
-		}
+	// Start the training loop.
+	go trainingLoop(
+		ctx,
+		menuClient,
+		agentClient,
+		// 1 minute 50 seconds.
+		110*time.Second,
+	)
 
-		raceTime, err := playGameLoop(ctx, menu, player)
-		if err != nil {
-			log.Println("Game error:", err)
-			continue
-		}
-
-		log.Println(fmt.Sprintf("Finished race in %q", raceTime))
-	}
+	// Wait for the context to be done.
+	<-ctx.Done()
+	return
 }
 
 func connectToBrowser(
@@ -89,68 +85,67 @@ func connectToBrowser(
 	return browser, nil
 }
 
-func openGame(
+func trainingLoop(
 	ctx context.Context,
-	browser *rod.Browser,
-	gameURL string,
+	menuClient *menu.Client,
+	agentClient *agent.Client,
 	timeout time.Duration,
-) (*rod.Page, error) {
-	ctx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
+) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
 
-	// Open the game page.
-	page, err := browser.
-		Page(proto.TargetCreateTarget{URL: gameURL})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create page: %w", err)
+		default:
+			if _, err := doTraining(
+				ctx,
+				menuClient,
+				agentClient,
+				timeout,
+			); err != nil {
+				return err
+			}
+		}
 	}
-
-	// Wait for the page to load.
-	if err := page.Context(ctx).WaitLoad(); err != nil {
-		return nil, fmt.Errorf("failed to wait for page to load: %w", err)
-	}
-
-	// Search for the "Start" button.
-	startButton, err := page.ElementX(`//span[text()="Start"]`)
-	if err != nil {
-		return nil, fmt.Errorf("failed to find start button: %w", err)
-	}
-
-	// Wait until the "Start" button is interactable.
-	if _, err := startButton.Context(ctx).WaitInteractable(); err != nil {
-		return nil, fmt.Errorf("failed to wait for start button to be interactable: %w", err)
-	}
-
-	return page, nil
 }
 
-func playGameLoop(
+func doTraining(
 	parentCtx context.Context,
-	menu *menu.Manager,
-	player *game.Player,
+	menuClient *menu.Client,
+	agentClient *agent.Client,
+	timeout time.Duration,
 ) (string, error) {
 	// Start game
-	if err := menu.StartGame(); err != nil {
+	if err := menuClient.StartGame(); err != nil {
 		return "", fmt.Errorf("failed to start game: %w", err)
 	}
 
+	// Sleep until countdown is done.
+	time.Sleep(2 * time.Second)
+
 	// Game context.
-	ctx, cancel := context.WithCancel(parentCtx)
+	ctx, cancel := context.WithTimeout(parentCtx, timeout)
 	defer cancel()
 
 	// Drive in game.
-	go player.Drive(ctx, 100*time.Millisecond)
+	go agentClient.Run(ctx, 100*time.Millisecond)
 
 	// Wait for game to finish.
-	if err := menu.WaitForFinish(ctx, 1*time.Second); err != nil {
+	if err := menuClient.WaitForFinish(ctx); err != nil {
 		return "", fmt.Errorf("failed to wait for game to finish: %w", err)
 	}
 
 	// Get final time.
-	raceTime, err := menu.GetReplayTime()
+	raceTime, err := menuClient.GetReplayTime()
 	if err != nil {
 		return "", fmt.Errorf("failed to get race time: %w", err)
 	}
+
+	// Log the final time.
+	log.Printf("Finished in %q", raceTime)
+
+	// Sleep until the replay is done.
+	time.Sleep(2 * time.Second)
 
 	return raceTime, nil
 }
