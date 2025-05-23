@@ -38,16 +38,19 @@ func (c *Client) SetBrain(b *brain.Brain) {
 }
 
 // Run runs the agent.
-func (c *Client) Run(ctx context.Context, interval time.Duration) {
+func (c *Client) Run(ctx context.Context, interval time.Duration) error {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
-			return
+			return nil
+
 		case <-ticker.C:
-			c.doRun(ctx)
+			if err := c.doRun(ctx); err != nil {
+				return err
+			}
 		}
 	}
 }
@@ -56,7 +59,6 @@ func (c *Client) Run(ctx context.Context, interval time.Duration) {
 func (c *Client) doRun(ctx context.Context) error {
 	img, err := c.screen.Peek(ctx)
 	if err != nil {
-		fmt.Println(fmt.Errorf("failed to peek screen: %w", err))
 		return fmt.Errorf("failed to peek screen: %w", err)
 	}
 
@@ -72,15 +74,8 @@ func (c *Client) doRun(ctx context.Context) error {
 	}
 
 	if err := c.controller.Apply(action); err != nil {
-		fmt.Println("failed to send action")
 		return fmt.Errorf("failed to send action: %w", err)
 	}
 
 	return nil
 }
-
-// generateNextAction is now handled by the brain, but we keep an empty stub to
-// avoid breaking other parts of the codebase that might depend on it. It is
-// deprecated and will be removed in the future.
-// Deprecated: use brain.Predict instead.
-func generateNextAction(_ []byte) game.Action { return game.Action{} }

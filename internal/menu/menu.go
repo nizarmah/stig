@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/input"
+	"github.com/go-rod/rod/lib/proto"
 )
 
 // Client controls the game menu.
@@ -22,10 +23,15 @@ func NewClient(page *rod.Page) *Client {
 
 // StartGame starts the game by clicking the "Start" button.
 func (c *Client) StartGame() error {
-	// Press "Enter" to start the game.
-	pressEnter := c.page.KeyActions().Type(input.Enter)
-	if err := pressEnter.Do(); err != nil {
-		return fmt.Errorf("failed to start game: %w", err)
+	// Search for the "Start" button.
+	startButton, err := c.page.ElementX(`//span[text()="Start"]`)
+	if err != nil {
+		return fmt.Errorf("failed to find start button: %w", err)
+	}
+
+	// Click the "Start" button.
+	if err := startButton.Click(proto.InputMouseButtonLeft, 1); err != nil {
+		return fmt.Errorf("failed to click on start button: %w", err)
 	}
 
 	return nil
@@ -33,10 +39,15 @@ func (c *Client) StartGame() error {
 
 // ResetGame resets the game before the current one ends.
 func (c *Client) ResetGame() error {
-	// Press "Delete" to instantly reset the game.
-	pressDelete := c.page.KeyActions().Type(input.Delete)
-	if err := pressDelete.Do(); err != nil {
-		return fmt.Errorf("failed to reset game: %w", err)
+	// Press "Escape" to go back to the main menu.
+	pressEscape := c.page.KeyActions().Type(input.Escape)
+	if err := pressEscape.Do(); err != nil {
+		return fmt.Errorf("failed to press escape: %w", err)
+	}
+
+	// Start the game.
+	if err := c.StartGame(); err != nil {
+		return fmt.Errorf("failed to start game: %w", err)
 	}
 
 	return nil
@@ -67,7 +78,8 @@ func (c *Client) WaitForFinish(ctx context.Context) error {
 			return ctx.Err()
 
 		default:
-			if el, _ := c.page.Element(`div[data-your-time="true"]`); el != nil {
+			// Tie the DOM query to the same context so it respects timeouts.
+			if el, _ := c.page.Context(ctx).Element(`div[data-your-time="true"]`); el != nil {
 				return nil
 			}
 		}

@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"math"
@@ -86,20 +87,14 @@ func main() {
 		baseBrain,
 	)
 
-	// Start the training loop.
-	go trainingLoop(
+	startTraining(
 		ctx,
 		menuClient,
 		agentClient,
 		baseBrain,
-		// 1 minute 50 seconds.
-		110*time.Second,
 		brainPath,
+		e.LapTimeout,
 	)
-
-	// Wait for the context to be done.
-	<-ctx.Done()
-	return
 }
 
 func connectToBrowser(
@@ -116,101 +111,91 @@ func connectToBrowser(
 	return browser, nil
 }
 
-func trainingLoop(
+func startTraining(
 	ctx context.Context,
 	menuClient *menu.Client,
 	agentClient *agent.Client,
-	bestBrain *brain.Brain,
+	baseBrain *brain.Brain,
+	brainPath string,
 	timeout time.Duration,
-	savePath string,
 ) error {
+	bestBrain := baseBrain
 	bestTime := math.MaxFloat64
 
 	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
+		// Mutate the best brain and use it for this training run.
+		candidate := bestBrain.Mutate(0.02)
+		agentClient.SetBrain(candidate)
 
-		default:
-			// Create a candidate brain by mutating the best so far.
-			candidate := bestBrain.Mutate(0.02)
+		// Run training.
+		raceMs, didFinish, err := runTraining(
+			ctx,
+			menuClient,
+			agentClient,
+			timeout,
+		)
+		if err != nil {
+			return err
+		}
 
-			// Use the candidate brain for this episode.
-			agentClient.SetBrain(candidate)
+		if didFinish {
+			return nil
+		}
 
-			raceTimeStr, err := doTraining(
-				ctx,
-				menuClient,
-				agentClient,
-				timeout,
-			)
-			if err != nil {
-				return err
-			}
+		if raceMs < bestTime {
+			bestTime = raceMs
+			bestBrain = candidate
+			log.Printf("🎉 new best time: %.0f ms", bestTime)
 
-			raceMs, err := parseRaceTime(raceTimeStr)
-			if err != nil {
-				log.Printf("failed to parse race time %q: %v", raceTimeStr, err)
-				continue
-			}
-
-			// Keep the candidate if it performed better.
-			if raceMs < bestTime {
-				bestTime = raceMs
-				bestBrain = candidate
-				log.Printf("🎉 new best time: %.0f ms", bestTime)
-
-				if err := bestBrain.Save(savePath); err != nil {
-					log.Printf("failed to save best brain: %v", err)
-				}
+			if err := bestBrain.Save(brainPath); err != nil {
+				return fmt.Errorf("failed to save best brain: %v", err)
 			}
 		}
 	}
 }
 
-func doTraining(
+func runTraining(
 	parentCtx context.Context,
 	menuClient *menu.Client,
 	agentClient *agent.Client,
 	timeout time.Duration,
-) (string, error) {
-	// Start game
-	if err := menuClient.StartGame(); err != nil {
-		return "", fmt.Errorf("failed to start game: %w", err)
-	}
-
-	// Sleep until countdown is done.
-	time.Sleep(2 * time.Second)
-
-	// Game context.
+) (float64, bool, error) {
+	// Training context.
 	ctx, cancel := context.WithTimeout(parentCtx, timeout)
 	defer cancel()
 
-	// Drive in game.
+	// Reset the game.
+	if err := menuClient.ResetGame(); err != nil {
+		return 0, false, fmt.Errorf("failed to reset game: %w", err)
+	}
+
+	// Start driving.
 	go agentClient.Run(ctx, 100*time.Millisecond)
 
-	// Wait for game to finish.
+	// Wait for the game to finish.
 	if err := menuClient.WaitForFinish(ctx); err != nil {
-		return "", fmt.Errorf("failed to wait for game to finish: %w", err)
+		if errors.Is(err, context.DeadlineExceeded) {
+			return float64(timeout), false, nil
+		}
+
+		return 0, false, fmt.Errorf("failed to wait for game to finish: %w", err)
 	}
 
-	// Get final time.
+	// Get the final time.
 	raceTime, err := menuClient.GetReplayTime()
 	if err != nil {
-		return "", fmt.Errorf("failed to get race time: %w", err)
+		return 0, false, fmt.Errorf("failed to get replay time: %w", err)
 	}
 
-	// Log the final time.
-	log.Printf("Finished in %q", raceTime)
+	raceMs, err := parseRaceTime(raceTime)
+	if err != nil {
+		return 0, false, fmt.Errorf("failed to parse race time %q: %v", raceTime, err)
+	}
 
-	// Sleep until the replay is done.
-	time.Sleep(2 * time.Second)
-
-	return raceTime, nil
+	return raceMs, true, nil
 }
 
-// parseRaceTime converts a time string in the format mm:ss:SSS to total
-// milliseconds.
+// parseRaceTime converts a time string in the format mm:ss:SSS to total milliseconds.
 func parseRaceTime(s string) (float64, error) {
 	var min, sec, ms int
 	if _, err := fmt.Sscanf(s, "%02d:%02d:%03d", &min, &sec, &ms); err != nil {
