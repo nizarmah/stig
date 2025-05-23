@@ -48,15 +48,22 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Wait for the game to start.
-	time.Sleep(5 * time.Second)
-
-	// Reset the game.
-	if err := menu.ResetGame(); err != nil {
+	// Wait until the game finishes.
+	if err := menu.WaitForFinish(ctx, 3*time.Minute); err != nil {
 		log.Fatal(err)
 	}
 
-	// Wait for the game to reset.
+	// Log the race time.
+	if timeStr, err := menu.GetReplayTime(); err == nil {
+		log.Println("Time:", timeStr)
+	}
+
+	// Replay the game.
+	if err := menu.ReplayGame(); err != nil {
+		log.Fatal(err)
+	}
+
+	// Wait for the game to replay.
 	time.Sleep(5 * time.Second)
 }
 
