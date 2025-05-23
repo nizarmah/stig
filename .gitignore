@@ -19,9 +19,10 @@
 !cmd/stig
 
 !internal
+!internal/agent
+!internal/brain
+!internal/controller
 !internal/env
 !internal/game
 !internal/menu
-!internal/controller
 !internal/screen
-!internal/agent

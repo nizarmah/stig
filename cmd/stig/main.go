@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math"
+	"os"
 	"os/signal"
 	"syscall"
 	"time"
@@ -12,6 +14,7 @@ import (
 	"github.com/go-rod/rod"
 
 	"github.com/nizarmah/stig/internal/agent"
+	"github.com/nizarmah/stig/internal/brain"
 	"github.com/nizarmah/stig/internal/controller"
 	"github.com/nizarmah/stig/internal/env"
 	"github.com/nizarmah/stig/internal/menu"
@@ -51,10 +54,36 @@ func main() {
 	controllerClient := controller.NewClient(page)
 	screenClient := screen.NewClient(page)
 
+	// Brain persistence file.
+	const brainPath = "brain.gob"
+
+	// Try loading an existing brain; otherwise create a new one.
+	var baseBrain *brain.Brain
+
+	if _, err := os.Stat(brainPath); err == nil {
+		b, err := brain.Load(brainPath)
+		if err != nil {
+			log.Fatalf("failed to load brain: %v", err)
+		}
+		log.Printf("loaded brain from %s", brainPath)
+		baseBrain = b
+	} else {
+		// Create the initial brain with an approximate input size.
+		const (
+			approxInputSize = 80 * 60 // matches the 0.1 scale in screen.Peek
+			hiddenSize      = 64
+		)
+		baseBrain = brain.NewBrain(approxInputSize, hiddenSize)
+		if err := baseBrain.Save(brainPath); err != nil {
+			log.Printf("failed to save initial brain: %v", err)
+		}
+	}
+
 	// Create the agent client.
 	agentClient := agent.NewClient(
 		controllerClient,
 		screenClient,
+		baseBrain,
 	)
 
 	// Start the training loop.
@@ -62,8 +91,10 @@ func main() {
 		ctx,
 		menuClient,
 		agentClient,
+		baseBrain,
 		// 1 minute 50 seconds.
 		110*time.Second,
+		brainPath,
 	)
 
 	// Wait for the context to be done.
@@ -89,21 +120,49 @@ func trainingLoop(
 	ctx context.Context,
 	menuClient *menu.Client,
 	agentClient *agent.Client,
+	bestBrain *brain.Brain,
 	timeout time.Duration,
+	savePath string,
 ) error {
+	bestTime := math.MaxFloat64
+
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 
 		default:
-			if _, err := doTraining(
+			// Create a candidate brain by mutating the best so far.
+			candidate := bestBrain.Mutate(0.02)
+
+			// Use the candidate brain for this episode.
+			agentClient.SetBrain(candidate)
+
+			raceTimeStr, err := doTraining(
 				ctx,
 				menuClient,
 				agentClient,
 				timeout,
-			); err != nil {
+			)
+			if err != nil {
 				return err
+			}
+
+			raceMs, err := parseRaceTime(raceTimeStr)
+			if err != nil {
+				log.Printf("failed to parse race time %q: %v", raceTimeStr, err)
+				continue
+			}
+
+			// Keep the candidate if it performed better.
+			if raceMs < bestTime {
+				bestTime = raceMs
+				bestBrain = candidate
+				log.Printf("🎉 new best time: %.0f ms", bestTime)
+
+				if err := bestBrain.Save(savePath); err != nil {
+					log.Printf("failed to save best brain: %v", err)
+				}
 			}
 		}
 	}
@@ -148,4 +207,14 @@ func doTraining(
 	time.Sleep(2 * time.Second)
 
 	return raceTime, nil
+}
+
+// parseRaceTime converts a time string in the format mm:ss:SSS to total
+// milliseconds.
+func parseRaceTime(s string) (float64, error) {
+	var min, sec, ms int
+	if _, err := fmt.Sscanf(s, "%02d:%02d:%03d", &min, &sec, &ms); err != nil {
+		return 0, err
+	}
+	return float64(min*60000 + sec*1000 + ms), nil
 }

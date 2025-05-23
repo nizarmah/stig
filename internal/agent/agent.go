@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/nizarmah/stig/internal/brain"
 	"github.com/nizarmah/stig/internal/controller"
 	"github.com/nizarmah/stig/internal/game"
 	"github.com/nizarmah/stig/internal/screen"
@@ -15,17 +16,25 @@ import (
 type Client struct {
 	controller *controller.Client
 	screen     *screen.Client
+	brain      *brain.Brain
 }
 
 // NewClient creates a new client.
 func NewClient(
 	controller *controller.Client,
 	screen *screen.Client,
+	brain *brain.Brain,
 ) *Client {
 	return &Client{
 		controller: controller,
 		screen:     screen,
+		brain:      brain,
 	}
+}
+
+// SetBrain replaces the current brain with a new one.
+func (c *Client) SetBrain(b *brain.Brain) {
+	c.brain = b
 }
 
 // Run runs the agent.
@@ -51,7 +60,16 @@ func (c *Client) doRun(ctx context.Context) error {
 		return fmt.Errorf("failed to peek screen: %w", err)
 	}
 
-	action := generateNextAction(img)
+	// Decide the next action using the brain.
+	throttle, steering, err := c.brain.Predict(img)
+	if err != nil {
+		return fmt.Errorf("brain prediction failed: %w", err)
+	}
+
+	action := game.Action{
+		Throttle: throttle,
+		Steering: steering,
+	}
 
 	if err := c.controller.Apply(action); err != nil {
 		fmt.Println("failed to send action")
@@ -61,9 +79,8 @@ func (c *Client) doRun(ctx context.Context) error {
 	return nil
 }
 
-func generateNextAction(_ []byte) game.Action {
-	return game.Action{
-		Throttle: "accelerate",
-		Steering: "",
-	}
-}
+// generateNextAction is now handled by the brain, but we keep an empty stub to
+// avoid breaking other parts of the codebase that might depend on it. It is
+// deprecated and will be removed in the future.
+// Deprecated: use brain.Predict instead.
+func generateNextAction(_ []byte) game.Action { return game.Action{} }
