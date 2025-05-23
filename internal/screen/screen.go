@@ -3,22 +3,24 @@ package screen
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/go-rod/rod"
+	"github.com/go-rod/rod/lib/proto"
 )
 
+// ClientConfiguration is the configuration for the screen client.
 type ClientConfiguration struct {
 	// Debug is whether to save the snapshot to a file.
 	Debug bool
 	// Page is the page of the game.
 	Page *rod.Page
+	// Resolution is the resolution of the screen (0 to 100).
+	Resolution int
 }
 
 // Client is the screen of the game.
@@ -27,6 +29,8 @@ type Client struct {
 	debug bool
 	// Page is the page of the game.
 	page *rod.Page
+	// Resolution is the resolution of the screen (0 to 100).
+	resolution int
 }
 
 // NewClient creates a new client.
@@ -39,52 +43,26 @@ func NewClient(cfg ClientConfiguration) *Client {
 
 // Peek takes a snapshot of the screen.
 func (c *Client) Peek(ctx context.Context) ([]byte, error) {
-	script := `() => {
-		const canvas = document.querySelector("canvas");
-		if (!canvas) throw new Error("missing canvas");
-
-		const scaled = document.createElement("canvas");
-		const ctx = scaled.getContext("2d");
-		if (!ctx) throw new Error("missing ctx");
-
-		scaled.width = canvas.width * 0.1;
-		scaled.height = canvas.height * 0.1;
-
-		ctx.drawImage(canvas, 0, 0, scaled.width, scaled.height);
-		return scaled.toDataURL("image/jpeg", 0.6);
-	}`
-
-	dataURL, err := c.page.
+	imageData, err := c.page.
 		Context(ctx).
-		Evaluate(&rod.EvalOptions{JS: script, ByValue: true})
+		Screenshot(true, &proto.PageCaptureScreenshot{
+			Format:                proto.PageCaptureScreenshotFormatJpeg,
+			Quality:               &[]int{c.resolution}[0],
+			OptimizeForSpeed:      true,
+			FromSurface:           true,
+			CaptureBeyondViewport: false,
+		})
 	if err != nil {
 		return nil, fmt.Errorf("failed to take snapshot: %w", err)
 	}
 
-	imgData, err := extractBase64Image(dataURL.Value.Str())
-	if err != nil {
-		return nil, fmt.Errorf("failed to extract base64 image: %w", err)
-	}
-
 	if c.debug {
-		if err := saveSnapshot(imgData); err != nil {
+		if err := saveSnapshot(imageData); err != nil {
 			log.Printf("failed to save snapshot: %v", err)
 		}
 	}
 
-	return imgData, nil
-}
-
-// ExtractBase64Image strips the prefix and decodes the base64 image.
-func extractBase64Image(dataURL string) ([]byte, error) {
-	const prefix = "data:image/jpeg;base64,"
-	if !strings.HasPrefix(dataURL, prefix) {
-		return nil, fmt.Errorf("invalid data URL format: %s", dataURL)
-	}
-
-	return base64.StdEncoding.DecodeString(
-		strings.TrimPrefix(dataURL, prefix),
-	)
+	return imageData, nil
 }
 
 func saveSnapshot(imgData []byte) error {

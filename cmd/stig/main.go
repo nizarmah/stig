@@ -58,8 +58,9 @@ func main() {
 
 	// Create the screen client.
 	screenClient := screen.NewClient(screen.ClientConfiguration{
-		Debug: e.DebugScreen,
-		Page:  page,
+		Debug:      e.ScreenDebug,
+		Page:       page,
+		Resolution: e.ScreenResolution,
 	})
 
 	// Brain persistence file.
