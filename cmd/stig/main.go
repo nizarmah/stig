@@ -50,10 +50,17 @@ func main() {
 	}
 	defer page.Close()
 
-	// Create the menu, controller, and screen clients.
+	// Create the menu client.
 	menuClient := menu.NewClient(page)
+
+	// Create the controller client.
 	controllerClient := controller.NewClient(page)
-	screenClient := screen.NewClient(page)
+
+	// Create the screen client.
+	screenClient := screen.NewClient(screen.ClientConfiguration{
+		Debug: e.DebugScreen,
+		Page:  page,
+	})
 
 	// Brain persistence file.
 	const brainPath = "brain.gob"

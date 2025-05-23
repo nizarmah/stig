@@ -5,20 +5,36 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"log"
+	"os"
+	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/go-rod/rod"
 )
 
+type ClientConfiguration struct {
+	// Debug is whether to save the snapshot to a file.
+	Debug bool
+	// Page is the page of the game.
+	Page *rod.Page
+}
+
 // Client is the screen of the game.
 type Client struct {
+	// Debug is whether to save the snapshot to a file.
+	debug bool
 	// Page is the page of the game.
 	page *rod.Page
 }
 
 // NewClient creates a new client.
-func NewClient(page *rod.Page) *Client {
-	return &Client{page: page}
+func NewClient(cfg ClientConfiguration) *Client {
+	return &Client{
+		debug: cfg.Debug,
+		page:  cfg.Page,
+	}
 }
 
 // Peek takes a snapshot of the screen.
@@ -50,6 +66,12 @@ func (c *Client) Peek(ctx context.Context) ([]byte, error) {
 		return nil, fmt.Errorf("failed to extract base64 image: %w", err)
 	}
 
+	if c.debug {
+		if err := saveSnapshot(imgData); err != nil {
+			log.Printf("failed to save snapshot: %v", err)
+		}
+	}
+
 	return imgData, nil
 }
 
@@ -63,4 +85,33 @@ func extractBase64Image(dataURL string) ([]byte, error) {
 	return base64.StdEncoding.DecodeString(
 		strings.TrimPrefix(dataURL, prefix),
 	)
+}
+
+func saveSnapshot(imgData []byte) error {
+	// Create the directory "debug/screen" if not exists.
+	dir := "debug/screen"
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("failed to create directory %s: %v", dir, err)
+	}
+
+	// Check the frames in the directory.
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		return fmt.Errorf("failed to read directory %s: %v", dir, err)
+	}
+
+	// Keep only the last 60 frames.
+	if len(files) > 60 {
+		// Delete the oldest frame.
+		if err := os.Remove(filepath.Join(dir, files[0].Name())); err != nil {
+			return fmt.Errorf("failed to remove file %s: %v", files[0].Name(), err)
+		}
+	}
+
+	// Save the snapshot to the directory.
+	if err := os.WriteFile(filepath.Join(dir, fmt.Sprintf("frame_%d.jpg", time.Now().UnixMilli())), imgData, 0644); err != nil {
+		return fmt.Errorf("failed to save snapshot to %s: %v", filepath.Join(dir, fmt.Sprintf("frame_%d.jpg", time.Now().UnixMilli())), err)
+	}
+
+	return nil
 }

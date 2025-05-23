@@ -12,6 +12,8 @@ import (
 type Env struct {
 	// BrowserWSURL is the URL of the browser to control.
 	BrowserWSURL string
+	// DebugScreen is whether to debug the screen package.
+	DebugScreen bool
 	// GameURL is the URL of the game to play.
 	GameURL string
 	// LapTimeout is the timeout for a single lap (milliseconds).
@@ -21,6 +23,11 @@ type Env struct {
 // NewEnv creates a new Env instance.
 func NewEnv() (*Env, error) {
 	browserWSURL, err := lookup("BROWSER_WS_URL")
+	if err != nil {
+		return nil, err
+	}
+
+	debugScreen, err := lookupBool("DEBUG_SCREEN")
 	if err != nil {
 		return nil, err
 	}
@@ -37,6 +44,7 @@ func NewEnv() (*Env, error) {
 
 	return &Env{
 		BrowserWSURL: browserWSURL,
+		DebugScreen:  debugScreen,
 		GameURL:      gameURL,
 		LapTimeout:   lapTimeout,
 	}, nil
@@ -49,6 +57,15 @@ func lookup(key string) (string, error) {
 	}
 
 	return value, nil
+}
+
+func lookupBool(key string) (bool, error) {
+	value, err := lookup(key)
+	if err != nil {
+		return false, err
+	}
+
+	return strconv.ParseBool(value)
 }
 
 func lookupInt(key string) (int, error) {
