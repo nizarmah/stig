@@ -89,11 +89,13 @@ func main() {
 	}
 
 	// Create the agent client.
-	agentClient := agent.NewClient(
-		controllerClient,
-		screenClient,
-		baseBrain,
-	)
+	agentClient := agent.NewClient(agent.ClientConfiguration{
+		Controller:      controllerClient,
+		Screen:          screenClient,
+		Brain:           baseBrain,
+		MotionThreshold: e.MotionThreshold,
+		MotionDebug:     e.MotionDebug,
+	})
 
 	startTraining(
 		ctx,
@@ -128,7 +130,7 @@ func startTraining(
 	timeout time.Duration,
 ) error {
 	bestBrain := baseBrain
-	bestTime := math.MaxFloat64
+	bestScore := -math.MaxFloat64
 
 	for {
 		// Mutate the best brain and use it for this training run.
@@ -136,7 +138,7 @@ func startTraining(
 		agentClient.SetBrain(candidate)
 
 		// Run training.
-		raceMs, didFinish, err := runTraining(
+		score, err := runTraining(
 			ctx,
 			menuClient,
 			agentClient,
@@ -146,14 +148,10 @@ func startTraining(
 			return err
 		}
 
-		if didFinish {
-			return nil
-		}
-
-		if raceMs < bestTime {
-			bestTime = raceMs
+		if score > bestScore {
+			bestScore = score
 			bestBrain = candidate
-			log.Printf("🎉 new best time: %.0f ms", bestTime)
+			log.Printf("🎉 new best score: %.2f", bestScore)
 
 			if err := bestBrain.Save(brainPath); err != nil {
 				return fmt.Errorf("failed to save best brain: %v", err)
@@ -167,40 +165,91 @@ func runTraining(
 	menuClient *menu.Client,
 	agentClient *agent.Client,
 	timeout time.Duration,
-) (float64, bool, error) {
+) (float64, error) {
 	// Training context.
 	ctx, cancel := context.WithTimeout(parentCtx, timeout)
 	defer cancel()
 
 	// Reset the game.
 	if err := menuClient.ResetGame(); err != nil {
-		return 0, false, fmt.Errorf("failed to reset game: %w", err)
+		return 0, fmt.Errorf("failed to reset game: %w", err)
 	}
+
+	// Wait 3 seconds for the game to start.
+	time.Sleep(3 * time.Second)
+
+	// Reset motion detector for new run
+	agentClient.ResetMotionDetector()
+
+	// Start monitoring for stuck situations
+	stuckCtx, stuckCancel := context.WithCancel(ctx)
+	defer stuckCancel()
+
+	go monitorStuckState(stuckCtx, stuckCancel, agentClient)
 
 	// Start driving.
-	go agentClient.Run(ctx, 100*time.Millisecond)
+	go agentClient.Run(stuckCtx, 100*time.Millisecond)
 
-	// Wait for the game to finish.
-	if err := menuClient.WaitForFinish(ctx); err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			return float64(timeout), false, nil
-		}
+	// Wait for the game to finish or get stuck.
+	err := menuClient.WaitForFinish(stuckCtx)
 
-		return 0, false, fmt.Errorf("failed to wait for game to finish: %w", err)
+	// Check if we got stuck (no motion timeout)
+	if errors.Is(err, context.Canceled) {
+		totalDistance, timeSinceMotion := agentClient.GetMotionStats()
+		log.Printf("❌ Run canceled - stuck for %.1fs, total distance: %.2f",
+			timeSinceMotion.Seconds(), totalDistance)
+		// Return negative score based on distance traveled
+		return totalDistance - 1000, nil // Penalty for getting stuck
 	}
 
-	// Get the final time.
+	// Check if we hit the overall timeout
+	if errors.Is(err, context.DeadlineExceeded) {
+		totalDistance, _ := agentClient.GetMotionStats()
+		log.Printf("⏱️ Timeout reached, total distance: %.2f", totalDistance)
+		// Return score based on distance traveled
+		return totalDistance, nil
+	}
+
+	if err != nil {
+		return 0, fmt.Errorf("failed to wait for game to finish: %w", err)
+	}
+
+	// Game finished successfully - get the final time.
 	raceTime, err := menuClient.GetReplayTime()
 	if err != nil {
-		return 0, false, fmt.Errorf("failed to get replay time: %w", err)
+		return 0, fmt.Errorf("failed to get replay time: %w", err)
 	}
 
 	raceMs, err := parseRaceTime(raceTime)
 	if err != nil {
-		return 0, false, fmt.Errorf("failed to parse race time %q: %v", raceTime, err)
+		return 0, fmt.Errorf("failed to parse race time %q: %v", raceTime, err)
 	}
 
-	return raceMs, true, nil
+	log.Printf("✅ Finished race in %.0f ms", raceMs)
+
+	// For finished races, use negative time as score (lower time = higher score)
+	return -raceMs, nil
+}
+
+// monitorStuckState monitors the agent's motion and cancels if stuck for too long.
+func monitorStuckState(ctx context.Context, cancel context.CancelFunc, agentClient *agent.Client) {
+	const stuckTimeout = 5 * time.Second
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			_, timeSinceMotion := agentClient.GetMotionStats()
+			if timeSinceMotion > stuckTimeout {
+				log.Printf("🛑 No motion detected for %.1fs - canceling run", timeSinceMotion.Seconds())
+				cancel()
+				return
+			}
+		}
+	}
 }
 
 // parseRaceTime converts a time string in the format mm:ss:SSS to total milliseconds.

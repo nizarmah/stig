@@ -25,4 +25,5 @@
 !internal/env
 !internal/game
 !internal/menu
+!internal/motion
 !internal/screen
