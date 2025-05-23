@@ -36,8 +36,9 @@ type Client struct {
 // NewClient creates a new client.
 func NewClient(cfg ClientConfiguration) *Client {
 	return &Client{
-		debug: cfg.Debug,
-		page:  cfg.Page,
+		debug:      cfg.Debug,
+		page:       cfg.Page,
+		resolution: cfg.Resolution,
 	}
 }
 
