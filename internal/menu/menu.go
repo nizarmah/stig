@@ -8,40 +8,25 @@ import (
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/input"
-	"github.com/go-rod/rod/lib/proto"
 )
 
 // Manager manages the game menu.
 type Manager struct {
+	// Page is the page of the game.
 	page *rod.Page
 }
 
 // NewManager creates a new manager.
-func NewManager(
-	ctx context.Context,
-	browser *rod.Browser,
-	gameURL string,
-	timeout time.Duration,
-) (*Manager, error) {
-	page, err := openInitialMenu(ctx, browser, gameURL, timeout)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create manager: %w", err)
-	}
-
+func NewManager(page *rod.Page) (*Manager, error) {
 	return &Manager{page: page}, nil
 }
 
 // StartGame starts the game by clicking the "Start" button.
 func (m *Manager) StartGame() error {
-	// Search for the "Start" button.
-	startButton, err := m.page.ElementX(`//span[text()="Start"]`)
-	if err != nil {
-		return fmt.Errorf("failed to find start button: %w", err)
-	}
-
-	// Click on the "Start" button.
-	if err := startButton.Click(proto.InputMouseButtonLeft, 1); err != nil {
-		return fmt.Errorf("failed to click on start button: %w", err)
+	// Press "Enter" to start the game.
+	pressEnter := m.page.KeyActions().Type(input.Enter)
+	if err := pressEnter.Do(); err != nil {
+		return fmt.Errorf("failed to start game: %w", err)
 	}
 
 	return nil
@@ -58,20 +43,6 @@ func (m *Manager) ResetGame() error {
 	// Start the game.
 	if err := m.StartGame(); err != nil {
 		return fmt.Errorf("failed to reset game: %w", err)
-	}
-
-	return nil
-}
-
-// ReplayGame starts a new game after the current one ended.
-func (m *Manager) ReplayGame() error {
-	btn, err := m.page.Element(`button[data-results-button="true"]`)
-	if err != nil {
-		return fmt.Errorf("failed to find replay button: %w", err)
-	}
-
-	if err := btn.Click(proto.InputMouseButtonLeft, 1); err != nil {
-		return fmt.Errorf("failed to click replay: %w", err)
 	}
 
 	return nil
@@ -94,20 +65,12 @@ func (m *Manager) GetReplayTime() (string, error) {
 	return *timeStr, nil
 }
 
-// WaitForFinish blocks until the game ends or the context is canceled.
+// WaitForFinish waits for the game to finish and signals when it does.
 func (m *Manager) WaitForFinish(
 	ctx context.Context,
-	timeout time.Duration,
+	interval time.Duration,
 ) error {
-	finishCtx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-
-	return m.doWaitForFinish(finishCtx)
-}
-
-// doWaitForFinish waits for the game to finish.
-func (m *Manager) doWaitForFinish(ctx context.Context) error {
-	ticker := time.NewTicker(1 * time.Second)
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	for {
@@ -120,37 +83,4 @@ func (m *Manager) doWaitForFinish(ctx context.Context) error {
 			}
 		}
 	}
-}
-
-// Close closes the manager and the game page.
-func (m *Manager) Close() error {
-	if err := m.page.Close(); err != nil {
-		return fmt.Errorf("failed to close page: %w", err)
-	}
-
-	return nil
-}
-
-// openInitialMenu opens the game initial menu.
-func openInitialMenu(
-	ctx context.Context,
-	browser *rod.Browser,
-	gameURL string,
-	timeout time.Duration,
-) (*rod.Page, error) {
-	ctx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-
-	// Open the game page.
-	page, err := browser.Page(proto.TargetCreateTarget{URL: gameURL})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create page: %w", err)
-	}
-
-	// Wait for the page to load.
-	if err := page.Context(ctx).WaitLoad(); err != nil {
-		return nil, fmt.Errorf("failed to wait for page to load: %w", err)
-	}
-
-	return page, nil
 }
