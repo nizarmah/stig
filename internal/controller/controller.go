@@ -30,47 +30,35 @@ func NewClient(page *rod.Page) *Client {
 
 // Apply applies an action in the game.
 func (c *Client) Apply(action game.Action) error {
-	if err := c.applyThrottle(c.action.Throttle, action.Throttle); err != nil {
+	if err := c.applyKey(
+		mapInputKey(game.ThrottleStateMap, c.action.Throttle),
+		mapInputKey(game.ThrottleStateMap, action.Throttle),
+	); err != nil {
 		return err
 	}
 
-	if err := c.applySteering(c.action.Steering, action.Steering); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// ApplyThrottle applies a throttle action to the game.
-func (c *Client) applyThrottle(prev, curr string) error {
-	// If the key didn't change, do nothing.
-	if prev == curr {
-		return nil
-	}
-
-	if err := releaseKey(c.page, mapThrottleKey(prev)); err != nil {
-		return err
-	}
-
-	if err := pressKey(c.page, mapThrottleKey(curr)); err != nil {
+	if err := c.applyKey(
+		mapInputKey(game.SteeringStateMap, c.action.Steering),
+		mapInputKey(game.SteeringStateMap, action.Steering),
+	); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-// ApplySteering applies a steering action to the game.
-func (c *Client) applySteering(prev, curr string) error {
+// ApplyKey applies a key action to the game.
+func (c *Client) applyKey(prev, curr input.Key) error {
 	// If the key didn't change, do nothing.
 	if prev == curr {
 		return nil
 	}
 
-	if err := releaseKey(c.page, mapSteeringKey(prev)); err != nil {
+	if err := releaseKey(c.page, prev); err != nil {
 		return err
 	}
 
-	if err := pressKey(c.page, mapSteeringKey(curr)); err != nil {
+	if err := pressKey(c.page, curr); err != nil {
 		return err
 	}
 
@@ -78,27 +66,13 @@ func (c *Client) applySteering(prev, curr string) error {
 }
 
 // MapThrottleKey maps a throttle action to a keyboard key.
-func mapThrottleKey(throttle string) input.Key {
-	switch throttle {
-	case "accelerate":
-		return input.ArrowUp
-	case "brake":
-		return input.ArrowDown
-	default:
-		return keyNil
+func mapInputKey(stateMap map[string][]input.Key, state string) input.Key {
+	keys, ok := stateMap[state]
+	if ok {
+		return keys[0]
 	}
-}
 
-// MapSteeringKey maps a steering action to a keyboard key.
-func mapSteeringKey(steering string) input.Key {
-	switch steering {
-	case "left":
-		return input.ArrowLeft
-	case "right":
-		return input.ArrowRight
-	default:
-		return keyNil
-	}
+	return keyNil
 }
 
 // PressKey presses and holds a key on the keyboard.

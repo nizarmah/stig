@@ -16,6 +16,7 @@
 !*.go
 
 !cmd
+!cmd/recorder
 !cmd/stig
 
 !internal
@@ -24,5 +25,4 @@
 !internal/controller
 !internal/env
 !internal/game
-!internal/menu
 !internal/screen

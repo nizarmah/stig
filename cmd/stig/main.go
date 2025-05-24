@@ -1,4 +1,4 @@
-// Package main is the entry point for stig.
+// Command stig plays the Horizon Drive game.
 package main
 
 import (
@@ -18,7 +18,7 @@ import (
 	"github.com/nizarmah/stig/internal/brain"
 	"github.com/nizarmah/stig/internal/controller"
 	"github.com/nizarmah/stig/internal/env"
-	"github.com/nizarmah/stig/internal/menu"
+	"github.com/nizarmah/stig/internal/game"
 	"github.com/nizarmah/stig/internal/screen"
 )
 
@@ -36,30 +36,25 @@ func main() {
 	)
 	defer cancel()
 
-	// Connect to the browser.
-	browser, err := connectToBrowser(ctx, e.BrowserWSURL)
+	// Create the game client.
+	gameClient, err := game.NewClient(ctx, game.ClientConfig{
+		BrowserWSURL: e.BrowserWSURL,
+		Debug:        false,
+		FPS:          e.FramesPerSecond,
+		GameURL:      e.GameURL,
+	}, 10*time.Second)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("failed to create game client: %v", err)
 	}
-	// defer browser.Close()
-
-	// Open the game.
-	page, err := menu.NewGame(ctx, browser, e.GameURL, 10*time.Second)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer page.Close()
-
-	// Create the menu client.
-	menuClient := menu.NewClient(page)
+	defer gameClient.Close()
 
 	// Create the controller client.
-	controllerClient := controller.NewClient(page)
+	controllerClient := controller.NewClient(gameClient.Page)
 
 	// Create the screen client.
 	screenClient := screen.NewClient(screen.ClientConfiguration{
 		Debug:      e.ScreenDebug,
-		Page:       page,
+		Page:       gameClient.Page,
 		Resolution: e.ScreenResolution,
 	})
 
@@ -97,7 +92,7 @@ func main() {
 
 	startTraining(
 		ctx,
-		menuClient,
+		gameClient,
 		agentClient,
 		baseBrain,
 		brainPath,
@@ -121,7 +116,7 @@ func connectToBrowser(
 
 func startTraining(
 	ctx context.Context,
-	menuClient *menu.Client,
+	gameClient *game.Client,
 	agentClient *agent.Client,
 	baseBrain *brain.Brain,
 	brainPath string,
@@ -138,7 +133,7 @@ func startTraining(
 		// Run training.
 		raceMs, didFinish, err := runTraining(
 			ctx,
-			menuClient,
+			gameClient,
 			agentClient,
 			timeout,
 		)
@@ -164,7 +159,7 @@ func startTraining(
 
 func runTraining(
 	parentCtx context.Context,
-	menuClient *menu.Client,
+	gameClient *game.Client,
 	agentClient *agent.Client,
 	timeout time.Duration,
 ) (float64, bool, error) {
@@ -173,7 +168,7 @@ func runTraining(
 	defer cancel()
 
 	// Reset the game.
-	if err := menuClient.ResetGame(); err != nil {
+	if err := gameClient.ResetGame(ctx); err != nil {
 		return 0, false, fmt.Errorf("failed to reset game: %w", err)
 	}
 
@@ -181,7 +176,7 @@ func runTraining(
 	go agentClient.Run(ctx, 100*time.Millisecond)
 
 	// Wait for the game to finish.
-	if err := menuClient.WaitForFinish(ctx); err != nil {
+	if err := gameClient.WaitForFinish(ctx); err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return float64(timeout), false, nil
 		}
@@ -190,7 +185,7 @@ func runTraining(
 	}
 
 	// Get the final time.
-	raceTime, err := menuClient.GetReplayTime()
+	raceTime, err := gameClient.GetReplayTime(ctx)
 	if err != nil {
 		return 0, false, fmt.Errorf("failed to get replay time: %w", err)
 	}

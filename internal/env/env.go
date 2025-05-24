@@ -12,10 +12,16 @@ import (
 type Env struct {
 	// BrowserWSURL is the URL of the browser to control.
 	BrowserWSURL string
+	// FramesPerSecond is the frames per second of the game loop.
+	FramesPerSecond int
 	// GameURL is the URL of the game to play.
 	GameURL string
 	// LapTimeout is the timeout for a single lap (milliseconds).
 	LapTimeout time.Duration
+	// RecorderOutputDir is the directory to output the recorder recordings.
+	RecorderOutputDir string
+	// RecorderLapsNum is the number of laps to record.
+	RecorderLapsNum int
 	// ScreenDebug is whether to debug the screen package.
 	ScreenDebug bool
 	// ScreenResolution is the resolution of the screen.
@@ -29,12 +35,27 @@ func NewEnv() (*Env, error) {
 		return nil, err
 	}
 
+	framesPerSecond, err := lookupInt("FRAMES_PER_SECOND")
+	if err != nil {
+		return nil, err
+	}
+
 	gameURL, err := lookup("GAME_URL")
 	if err != nil {
 		return nil, err
 	}
 
 	lapTimeout, err := lookupDuration("LAP_TIMEOUT", time.Millisecond)
+	if err != nil {
+		return nil, err
+	}
+
+	recorderLapsNum, err := lookupInt("RECORDER_LAPS_NUM")
+	if err != nil {
+		return nil, err
+	}
+
+	recorderOutputDir, err := lookup("RECORDER_OUTPUT_DIR")
 	if err != nil {
 		return nil, err
 	}
@@ -50,11 +71,14 @@ func NewEnv() (*Env, error) {
 	}
 
 	return &Env{
-		BrowserWSURL:     browserWSURL,
-		GameURL:          gameURL,
-		LapTimeout:       lapTimeout,
-		ScreenDebug:      screenDebug,
-		ScreenResolution: screenResolution,
+		BrowserWSURL:      browserWSURL,
+		FramesPerSecond:   framesPerSecond,
+		GameURL:           gameURL,
+		LapTimeout:        lapTimeout,
+		RecorderLapsNum:   recorderLapsNum,
+		RecorderOutputDir: recorderOutputDir,
+		ScreenDebug:       screenDebug,
+		ScreenResolution:  screenResolution,
 	}, nil
 }
 
