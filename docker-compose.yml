@@ -33,3 +33,28 @@ services:
     network_mode: host
     volumes:
       - ./assets:/app/assets
+
+  track-train:
+    build:
+      context: .
+      dockerfile: track/docker/train/Dockerfile
+    image: nn-trainer:latest
+    profiles: ["dev"]           # keeps it out of prod deployments
+    shm_size: "2g"
+    volumes:
+      # 1) raw frames (read-only)
+      - ./assets/recordings:/recordings:ro
+      # 2) persistent artefacts
+      - ./models:/models
+    environment:
+      - DATA_ROOT=/recordings
+      - MODEL_DIR=/models
+      # (optionally) WANDB_API_KEY=…
+    # GPU support (uncomment if you used the CUDA base image
+    # and have Docker + nvidia-container-toolkit configured)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - capabilities: ["gpu"]
+

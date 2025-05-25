@@ -1,4 +1,4 @@
-.PHONY: env
+.PHONY: env game-play game-record track-train
 
 # setup env files
 env:
@@ -22,3 +22,18 @@ env:
 		echo "game/env/record/.env already exists"; \
 	fi
 	@echo "Done."
+
+# play the game
+game-play:
+	@docker compose run --rm --build \
+			game-play
+
+# record the game
+game-record:
+	@docker compose run --rm --build \
+			game-record
+
+# train the model
+track-train:
+	@docker compose run --rm --build \
+			track-train --epochs 10
