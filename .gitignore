@@ -1,28 +1,7 @@
-# ignore everything
-*
+.DS_Store
 
-# except
-!.gitignore
+.env
 
-!example.env
-
-!README.md
-
-!go.mod
-!go.sum
-
-!Makefile
-
-!*.go
-
-!cmd
-!cmd/recorder
-!cmd/stig
-
-!internal
-!internal/agent
-!internal/brain
-!internal/controller
-!internal/env
-!internal/game
-!internal/screen
+# we ignore the recordings, because they are large.
+# we will make them downloadable git lfs instead.
+assets/recordings
