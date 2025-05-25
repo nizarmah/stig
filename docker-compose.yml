@@ -12,6 +12,7 @@ services:
       context: ./game
       dockerfile: docker/play/Dockerfile
     env_file:
+      - ./game/env/.env
       - ./game/env/play/.env
     # Allow container to connect to host machine.
     # Needed for the game client to connect to the browser.
@@ -25,6 +26,7 @@ services:
       context: ./game
       dockerfile: docker/record/Dockerfile
     env_file:
+      - ./game/env/.env
       - ./game/env/record/.env
     # Allow container to connect to host machine.
     # Needed for the game client to connect to the browser.

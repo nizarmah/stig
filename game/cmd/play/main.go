@@ -39,7 +39,7 @@ func main() {
 		Debug:        env.GameDebug,
 		FPS:          env.FramesPerSecond,
 		GameURL:      env.GameURL,
-	}, 10*time.Second)
+	}, env.GameTimeout)
 	if err != nil {
 		log.Fatalf("failed to create game client: %v", err)
 	}

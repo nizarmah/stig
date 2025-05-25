@@ -1,6 +1,8 @@
 package main
 
 import (
+	"time"
+
 	"github.com/nizarmah/stig/game/internal/env"
 )
 
@@ -14,6 +16,8 @@ type Env struct {
 	FramesPerSecond int
 	// GameDebug is whether to debug the game client.
 	GameDebug bool
+	// GameTimeout is the timeout for starting the game client (seconds).
+	GameTimeout time.Duration
 	// GameURL is the URL of the game to play.
 	GameURL string
 	// LapsNum is the number of laps to record.
@@ -48,6 +52,11 @@ func NewEnv() (*Env, error) {
 		return nil, err
 	}
 
+	gameTimeout, err := env.LookupDuration("GAME_TIMEOUT", time.Second)
+	if err != nil {
+		return nil, err
+	}
+
 	gameURL, err := env.Lookup("GAME_URL")
 	if err != nil {
 		return nil, err
@@ -78,6 +87,7 @@ func NewEnv() (*Env, error) {
 		ControllerDebug:  controllerDebug,
 		FramesPerSecond:  framesPerSecond,
 		GameDebug:        gameDebug,
+		GameTimeout:      gameTimeout,
 		GameURL:          gameURL,
 		LapsNum:          lapsNum,
 		RecordingsDir:    recordingsDir,
