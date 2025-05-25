@@ -12,19 +12,16 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/go-rod/rod"
-
-	"github.com/nizarmah/stig/internal/agent"
-	"github.com/nizarmah/stig/internal/brain"
-	"github.com/nizarmah/stig/internal/controller"
-	"github.com/nizarmah/stig/internal/env"
-	"github.com/nizarmah/stig/internal/game"
-	"github.com/nizarmah/stig/internal/screen"
+	"github.com/nizarmah/stig/game/internal/agent"
+	"github.com/nizarmah/stig/game/internal/brain"
+	"github.com/nizarmah/stig/game/internal/controller"
+	"github.com/nizarmah/stig/game/internal/game"
+	"github.com/nizarmah/stig/game/internal/screen"
 )
 
 func main() {
 	// Environment.
-	e, err := env.NewEnv()
+	env, err := NewEnv()
 	if err != nil {
 		log.Fatalf("failed to create env: %v", err)
 	}
@@ -38,10 +35,10 @@ func main() {
 
 	// Create the game client.
 	gameClient, err := game.NewClient(ctx, game.ClientConfig{
-		BrowserWSURL: e.BrowserWSURL,
-		Debug:        false,
-		FPS:          e.FramesPerSecond,
-		GameURL:      e.GameURL,
+		BrowserWSURL: env.BrowserWSURL,
+		Debug:        env.GameDebug,
+		FPS:          env.FramesPerSecond,
+		GameURL:      env.GameURL,
 	}, 10*time.Second)
 	if err != nil {
 		log.Fatalf("failed to create game client: %v", err)
@@ -53,9 +50,9 @@ func main() {
 
 	// Create the screen client.
 	screenClient := screen.NewClient(screen.ClientConfiguration{
-		Debug:      e.ScreenDebug,
+		Debug:      env.ScreenDebug,
 		Page:       gameClient.Page,
-		Resolution: e.ScreenResolution,
+		Resolution: env.ScreenResolution,
 	})
 
 	// Brain persistence file.
@@ -96,22 +93,8 @@ func main() {
 		agentClient,
 		baseBrain,
 		brainPath,
-		e.LapTimeout,
+		env.LapTimeout,
 	)
-}
-
-func connectToBrowser(
-	ctx context.Context,
-	browserWSURL string,
-) (*rod.Browser, error) {
-	browser := rod.New().
-		Context(ctx).
-		ControlURL(browserWSURL)
-	if err := browser.Connect(); err != nil {
-		return nil, fmt.Errorf("failed to connect to browser: %w", err)
-	}
-
-	return browser, nil
 }
 
 func startTraining(

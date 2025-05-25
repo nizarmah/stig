@@ -11,15 +11,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/nizarmah/stig/internal/controller"
-	"github.com/nizarmah/stig/internal/env"
-	"github.com/nizarmah/stig/internal/game"
-	"github.com/nizarmah/stig/internal/screen"
+	"github.com/nizarmah/stig/game/internal/controller"
+	"github.com/nizarmah/stig/game/internal/game"
+	"github.com/nizarmah/stig/game/internal/screen"
 )
 
 func main() {
 	// Environment.
-	e, err := env.NewEnv()
+	env, err := NewEnv()
 	if err != nil {
 		log.Fatalf("failed to create env: %v", err)
 	}
@@ -33,10 +32,10 @@ func main() {
 
 	// Create the game client.
 	gameClient, err := game.NewClient(ctx, game.ClientConfig{
-		BrowserWSURL: e.BrowserWSURL,
-		Debug:        false,
-		FPS:          e.FramesPerSecond,
-		GameURL:      e.GameURL,
+		BrowserWSURL: env.BrowserWSURL,
+		Debug:        env.GameDebug,
+		FPS:          env.FramesPerSecond,
+		GameURL:      env.GameURL,
 	}, 10*time.Second)
 	if err != nil {
 		log.Fatalf("failed to create game client: %v", err)
@@ -45,7 +44,7 @@ func main() {
 
 	// Create the controller watcher.
 	controllerWatcher, err := controller.NewWatcher(ctx, controller.WatcherConfiguration{
-		Debug: true,
+		Debug: env.ControllerDebug,
 		Page:  gameClient.Page,
 	})
 	if err != nil {
@@ -54,9 +53,9 @@ func main() {
 
 	// Create the screen client.
 	screenClient := screen.NewClient(screen.ClientConfiguration{
-		Debug:      false,
+		Debug:      env.ScreenDebug,
 		Page:       gameClient.Page,
-		Resolution: 100,
+		Resolution: env.ScreenResolution,
 	})
 
 	// Create the session.
@@ -64,13 +63,13 @@ func main() {
 	session := fmt.Sprintf("session_%s", sessionTime)
 
 	// Create the session directory.
-	sessionDir := filepath.Join(e.RecorderOutputDir, session)
+	sessionDir := filepath.Join(env.RecordingsDir, session)
 	if err := os.MkdirAll(sessionDir, 0755); err != nil {
 		log.Fatalf("failed to create session directory: %v", err)
 	}
 
 	// Start the recorder loop.
-	for lap := range e.RecorderLapsNum {
+	for lap := range env.LapsNum {
 		select {
 		case <-ctx.Done():
 			return

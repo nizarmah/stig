@@ -1,0 +1,33 @@
+version: "3"
+
+# common properties
+x-common: &common
+  tty: true
+  stdin_open: true
+
+services:
+  game-play:
+    <<: *common
+    build:
+      context: ./game
+      dockerfile: docker/play/Dockerfile
+    env_file:
+      - ./game/env/play/.env
+    # Allow container to connect to host machine.
+    # Needed for the game client to connect to the browser.
+    network_mode: host
+    volumes:
+      - ./assets:/app/assets
+
+  game-record:
+    <<: *common
+    build:
+      context: ./game
+      dockerfile: docker/record/Dockerfile
+    env_file:
+      - ./game/env/record/.env
+    # Allow container to connect to host machine.
+    # Needed for the game client to connect to the browser.
+    network_mode: host
+    volumes:
+      - ./assets:/app/assets

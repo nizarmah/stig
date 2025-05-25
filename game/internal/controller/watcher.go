@@ -9,7 +9,7 @@ import (
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/input"
-	"github.com/nizarmah/stig/internal/game"
+	"github.com/nizarmah/stig/game/internal/game"
 )
 
 // WatcherConfiguration is the configuration for the watcher.

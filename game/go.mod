@@ -1,4 +1,4 @@
-module github.com/nizarmah/stig
+module github.com/nizarmah/stig/game
 
 go 1.24.3
 

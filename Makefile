@@ -1,10 +1,13 @@
-include .env
-export
+.PHONY: game-play game-record
 
-.PHONY: run record
+# Play the game.
+game-play:
+	include game/env/play/.env
+	export
+	@go run game/cmd/play/main.go
 
-run:
-	@go run cmd/stig/main.go
-
-record:
-	@go run cmd/recorder/main.go
+# Record gameplay.
+game-record:
+	include game/env/record/.env
+	export
+	@go run game/cmd/record/main.go

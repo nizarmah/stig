@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/nizarmah/stig/internal/brain"
-	"github.com/nizarmah/stig/internal/controller"
-	"github.com/nizarmah/stig/internal/game"
-	"github.com/nizarmah/stig/internal/screen"
+	"github.com/nizarmah/stig/game/internal/brain"
+	"github.com/nizarmah/stig/game/internal/controller"
+	"github.com/nizarmah/stig/game/internal/game"
+	"github.com/nizarmah/stig/game/internal/screen"
 )
 
 // Client is the agent that plays the game.
