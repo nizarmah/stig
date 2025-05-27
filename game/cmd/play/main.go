@@ -72,7 +72,8 @@ func main() {
 				screenClient,
 				env.LapTimeout,
 			); err != nil {
-				log.Fatalf("failed to play lap: %v", err)
+				log.Println(fmt.Sprintf("failed to play lap: %v", err))
+				continue
 			}
 		}
 	}

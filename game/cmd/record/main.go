@@ -78,7 +78,8 @@ func main() {
 			// Create the lap directory.
 			lapDir := filepath.Join(sessionDir, fmt.Sprintf("lap_%d", lap))
 			if err := os.MkdirAll(lapDir, 0755); err != nil {
-				log.Fatalf("failed to create lap %d directory: %v", lap, err)
+				log.Println(fmt.Sprintf("failed to create lap %d directory: %v", lap, err))
+				continue
 			}
 
 			// Record the lap.
@@ -89,7 +90,8 @@ func main() {
 				screenClient,
 				lapDir,
 			); err != nil {
-				log.Fatalf("failed to record lap %d: %v", lap, err)
+				log.Println(fmt.Sprintf("failed to record lap %d: %v", lap, err))
+				continue
 			}
 		}
 	}
