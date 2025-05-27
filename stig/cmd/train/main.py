@@ -16,15 +16,12 @@ def train(
     datasets_dir: str,
     models_dir: str,
     recordings_dir: str,
-    frame_height: int,
-    frame_width: int,
+    frame_size: Tuple[int, int],
     epochs: int,
     batch_size: int,
     learning_rate: float,
     device: str,
 ):
-    frame_size = (frame_height, frame_width)
-
     # create the dataset
     dataset = build_dataset(model_name, datasets_dir, recordings_dir, frame_size)
     dataloader = data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
@@ -62,7 +59,6 @@ def train(
     print(f"✅ saved {model_path}")
 
 if __name__ == "__main__":
-
     model_name = env.lookup("MODEL_NAME")
 
     datasets_dir = env.lookup("DATASETS_DIR")
@@ -71,6 +67,7 @@ if __name__ == "__main__":
 
     frame_height = env.lookupInt("FRAME_HEIGHT")
     frame_width = env.lookupInt("FRAME_WIDTH")
+    frame_size = (frame_height, frame_width)
 
     epochs = env.lookupInt("EPOCHS")
     batch_size = env.lookupInt("BATCH_SIZE")
@@ -82,8 +79,7 @@ if __name__ == "__main__":
       datasets_dir,
       models_dir,
       recordings_dir,
-      frame_height,
-      frame_width,
+      frame_size,
       epochs,
       batch_size,
       learning_rate,

@@ -2,3 +2,5 @@ torch>=2.2
 torchvision>=0.18
 opencv-python-headless>=4.9
 tqdm>=4.66
+fastapi>=0.110
+uvicorn[standard]>=0.29

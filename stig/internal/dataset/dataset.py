@@ -8,6 +8,7 @@ from typing import Tuple
 import re, cv2, numpy as np, tqdm, torch, torch.utils.data as data
 
 from stig.internal.game import action
+from stig.internal.dataset.image import process_image_from_path
 
 FRAME_RE = re.compile(
     r"frame_(?P<frame_timestamp>\d+)_(?P<throttle>accelerate|brake|)_(?P<steering>left|right|)\.jpe?g$",
@@ -55,8 +56,7 @@ def build_dataset(
         steering = re_match.group("steering")
         steerings.append(action.STEERING_LABELS_MAP[steering])
 
-        img = cv2.imread(str(p), cv2.IMREAD_GRAYSCALE)
-        img = cv2.resize(img, (size[1], size[0]), cv2.INTER_AREA)
+        img = process_image_from_path(str(p), size)
         images.append(img)
 
     with tqdm.tqdm(total=1, desc="Saving dataset") as pbar:
