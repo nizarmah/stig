@@ -1,0 +1,4 @@
+torch>=2.2
+torchvision>=0.18
+opencv-python-headless>=4.9
+tqdm>=4.66

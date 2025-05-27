@@ -1,39 +1,46 @@
-.PHONY: env game-play game-record track-train
+.PHONY: env game-play game-record stig-train stig-drive
+
+# copy a file if it doesn't exist
+define copy-file
+	@if [ ! -f $(1) ]; then \
+		cp $(2) $(1); \
+		echo "✅ $(1)"; \
+	fi
+endef
+
+# create a directory if it doesn't exist
+define create-dir
+	@if [ ! -d $(1) ]; then \
+		mkdir -p $(1); \
+		echo "✅ $(1)"; \
+	fi
+endef
 
 # setup env files
 env:
-	@echo "Setting up environment files..."
-	@if [ ! -f game/env/.env ]; then \
-		cp game/env/example.env game/env/.env; \
-		echo "Created game/env/.env"; \
-	else \
-		echo "game/env/.env already exists"; \
-	fi
-	@if [ ! -f game/env/play/.env ]; then \
-		cp game/env/play/example.env game/env/play/.env; \
-		echo "Created game/env/play/.env"; \
-	else \
-		echo "game/env/play/.env already exists"; \
-	fi
-	@if [ ! -f game/env/record/.env ]; then \
-		cp game/env/record/example.env game/env/record/.env; \
-		echo "Created game/env/record/.env"; \
-	else \
-		echo "game/env/record/.env already exists"; \
-	fi
-	@echo "Done."
+	$(call copy-file,game/env/.env,game/env/example.env)
+	$(call copy-file,game/env/play/.env,game/env/play/example.env)
+	$(call copy-file,game/env/record/.env,game/env/record/.env)
+	$(call copy-file,stig/env/.env,stig/env/example.env)
+
+# setup assets directories
+assets:
+	$(call create-dir,assets/datasets)
+	$(call create-dir,assets/models)
+	$(call create-dir,assets/recordings)
 
 # play the game
 game-play:
-	@docker compose run --rm --build \
-			game-play
+	@docker compose run --rm --build game-play
 
 # record the game
 game-record:
-	@docker compose run --rm --build \
-			game-record
+	@docker compose run --rm --build game-record
+
+# drive the model
+stig-drive:
+	@docker compose run --rm --build stig-drive
 
 # train the model
-track-train:
-	@docker compose run --rm --build \
-			track-train --epochs 10
+stig-train:
+	@docker compose run --rm --build stig-train

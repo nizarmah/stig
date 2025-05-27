@@ -34,27 +34,28 @@ services:
     volumes:
       - ./assets:/app/assets
 
-  track-train:
+  stig-train:
+    <<: *common
     build:
-      context: .
-      dockerfile: track/docker/train/Dockerfile
-    image: nn-trainer:latest
-    profiles: ["dev"]           # keeps it out of prod deployments
-    shm_size: "2g"
+      context: ./stig
+      dockerfile: docker/Dockerfile
+    entrypoint: ["python", "-m", "stig.cmd.train.main"]
+    env_file:
+      - ./stig/env/.env
     volumes:
-      # 1) raw frames (read-only)
-      - ./assets/recordings:/recordings:ro
-      # 2) persistent artefacts
-      - ./models:/models
-    environment:
-      - DATA_ROOT=/recordings
-      - MODEL_DIR=/models
-      # (optionally) WANDB_API_KEY=…
-    # GPU support (uncomment if you used the CUDA base image
-    # and have Docker + nvidia-container-toolkit configured)
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - capabilities: ["gpu"]
+      - ./stig:/app/stig
+      - ./assets:/app/assets
+    # Needed not to run out of memory.
+    shm_size: "2g"
 
+  stig-drive:
+    <<: *common
+    build:
+      context: ./stig
+      dockerfile: docker/Dockerfile
+    entrypoint: ["python", "-m", "stig.cmd.drive.main"]
+    env_file:
+      - ./stig/env/.env
+    volumes:
+      - ./stig:/app/stig
+      - ./assets:/app/assets

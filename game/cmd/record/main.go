@@ -150,7 +150,7 @@ func recordGameplay(
 		framePath := filepath.Join(
 			outputDir,
 			fmt.Sprintf(
-				"frame_%d_%s_%s.png",
+				"frame_%d_%s_%s.jpeg",
 				time.Now().UnixNano(),
 				action.Throttle,
 				action.Steering,

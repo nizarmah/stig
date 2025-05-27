@@ -2,6 +2,8 @@
 
 .env
 
-# we ignore the recordings, because they are large.
-# we will make them downloadable git lfs instead.
-assets/recordings
+__pycache__
+
+# we ignore the assets, because they are large.
+# we will make them downloadable in other ways.
+assets/
