@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Tuple
 
 import torch, uvicorn
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Body, HTTPException
 from pydantic import BaseModel, Field
 
 from stig.internal.env import env
@@ -36,7 +36,9 @@ def create_app(
     app = FastAPI(title="Stig Autopilot")
 
     @app.post("/act")
-    async def act(img_bytes: bytes) -> ActResp:
+    async def act(
+        img_bytes: bytes = Body(..., media_type="image/jpeg")
+    ) -> ActResp:
         # Process the image.
         try:
             img = process_from_bytes(img_bytes, frame_size, device)
