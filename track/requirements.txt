@@ -1,4 +1,0 @@
-torch>=2.2         # pulls CPU build if you used python:3.12-slim
-torchvision>=0.18
-opencv-python-headless>=4.9
-tqdm>=4.66
