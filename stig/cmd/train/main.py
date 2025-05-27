@@ -8,7 +8,7 @@ from typing import Tuple
 import tqdm, torch, torch.nn as nn, torch.utils.data as data
 
 from stig.internal.env import env
-from stig.internal.dataset.dataset import build_dataset, load_dataset
+from stig.internal.dataset.dataset import get_or_create_dataset
 from stig.internal.model.model import StigNet
 
 def train(
@@ -22,11 +22,8 @@ def train(
     learning_rate: float,
     device: str,
 ):
-    # Create the dataset.
-    dataset_path = build_dataset(model_name, datasets_dir, recordings_dir, frame_size)
-
     # Load the dataset.
-    dataset = load_dataset(dataset_path)
+    dataset = get_or_create_dataset(model_name, datasets_dir, recordings_dir, frame_size)
     dataloader = data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
     # Create the model.

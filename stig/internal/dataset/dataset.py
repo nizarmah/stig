@@ -15,75 +15,81 @@ FRAME_RE = re.compile(
     re.IGNORECASE,
 )
 
-def build_dataset(
+def get_or_create_dataset(
     model_name: str,
     datasets_dir: str,
     recordings_dir: str,
     size: Tuple[int, int],
-) -> str:
+) -> data.TensorDataset:
     """
-    Returns path to the .npz file (existing or freshly built).
+    Returns a dataset (existing or freshly built).
     """
-    # prepare directories
+    # Prepare directories.
     datasets_root = Path(datasets_dir)
     recordings_root = Path(recordings_dir)
 
-    # create the output path
-    manifest = datasets_root / f"{model_name}.npz"
+    # Create the dataset directory.
+    dataset_dir = datasets_root / model_name
+    dataset_dir.mkdir(parents=True, exist_ok=True)
 
-    # check if the dataset is up to date
+    # Create the output path.
+    imgs_path = dataset_dir / "images.npy"
+    meta_path = dataset_dir / "meta.npz"
+
+    # Check if the dataset is up to date.
     newest_src = _newest_mtime(recordings_root)
-    if manifest.exists() and manifest.stat().st_mtime >= newest_src:
-        return str(manifest)
+    if imgs_path.exists() and imgs_path.stat().st_mtime >= newest_src:
+        return load_dataset(str(imgs_path), str(meta_path))
 
-    # count how many frames are in the recordings directory
+    # Count how many frames are in the recordings directory.
     frames = _all_frames(recordings_root)
 
-    # ensure we have some frames
+    # Ensure we have some frames.
     if not frames:
         raise RuntimeError(f"no frames found in {recordings_dir}")
 
-    images, throttles, steerings = [], [], []
+    # Create as numpy arrays so we don't need to convert later.
+    images = np.empty((len(frames), size[0], size[1]), np.uint8)
+    throttles = np.empty(len(frames), np.int64)
+    steerings = np.empty(len(frames), np.int64)
 
-    for p in tqdm.tqdm(frames, desc="Building dataset"):
+    # Build the dataset.
+    for i, p in enumerate(tqdm.tqdm(frames, desc="Building dataset")):
         re_match = FRAME_RE.match(p.name)
         if not re_match:
             raise RuntimeError(f"unexpected frame file: {p}")
 
-        throttle = re_match.group("throttle")
-        throttles.append(action.THROTTLE_LABELS_MAP[throttle])
+        throttles[i] = action.THROTTLE_LABELS_MAP[re_match.group("throttle")]
+        steerings[i] = action.STEERING_LABELS_MAP[re_match.group("steering")]
 
-        steering = re_match.group("steering")
-        steerings.append(action.STEERING_LABELS_MAP[steering])
+        images[i] = process_from_path(str(p), size)
 
-        img = process_from_path(str(p), size)
-        images.append(img)
-
-    with tqdm.tqdm(total=1, desc="Saving dataset") as pbar:
-        np.savez_compressed(
-            manifest,
-            images=np.array(images),
-            throttles=np.array(throttles),
-            steerings=np.array(steerings),
-        )
-
+    # Save the dataset.
+    with tqdm.tqdm(total=2, desc="Saving dataset") as pbar:
+        np.save(imgs_path, images)
         pbar.update(1)
 
-    return str(manifest)
+        np.savez_compressed(meta_path, throttles=throttles, steerings=steerings)
+        pbar.update(1)
 
-def load_dataset(npz_path: str) -> data.TensorDataset:
+    # Load the dataset.
+    return load_dataset(str(imgs_path), str(meta_path))
+
+def load_dataset(imgs_path: str, meta_path: str) -> data.TensorDataset:
     """
-    Loads a dataset from a .npz file.
+    Loads a dataset from a .npy and .npz file.
     """
     with tqdm.tqdm(total=1, desc="Loading dataset") as pbar:
-        npz = np.load(npz_path)
+        # Separate loading to use memory mapping.
+        imgs = np.load(imgs_path, mmap_mode="r+")
+        meta = np.load(meta_path)
 
+        # Create the dataset.
         dataset = data.TensorDataset(
-          torch.from_numpy(npz["images"]).float()[:, None], # (N,1,H,W),
-          torch.from_numpy(npz["throttles"]),
-          torch.from_numpy(npz["steerings"]),
+          torch.from_numpy(imgs)[:, None], # uint8 → (N,1,H,W)
+          torch.from_numpy(meta["throttles"]),
+          torch.from_numpy(meta["steerings"]),
         )
-
         pbar.update(1)
 
     return dataset

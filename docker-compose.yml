@@ -61,5 +61,3 @@ services:
     volumes:
       - ./stig:/app/stig
       - ./assets:/app/assets
-    # Needed not to run out of memory.
-    shm_size: "2g"
