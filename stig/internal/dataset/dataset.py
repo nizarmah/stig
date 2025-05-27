@@ -8,7 +8,7 @@ from typing import Tuple
 import re, cv2, numpy as np, tqdm, torch, torch.utils.data as data
 
 from stig.internal.game import action
-from stig.internal.dataset.image import process_image_from_path
+from stig.internal.dataset.image import process_from_path
 
 FRAME_RE = re.compile(
     r"frame_(?P<frame_timestamp>\d+)_(?P<throttle>accelerate|brake|)_(?P<steering>left|right|)\.jpe?g$",
@@ -20,7 +20,7 @@ def build_dataset(
     datasets_dir: str,
     recordings_dir: str,
     size: Tuple[int, int],
-) -> data.TensorDataset:
+) -> str:
     """
     Returns path to the .npz file (existing or freshly built).
     """
@@ -34,7 +34,7 @@ def build_dataset(
     # check if the dataset is up to date
     newest_src = _newest_mtime(recordings_root)
     if manifest.exists() and manifest.stat().st_mtime >= newest_src:
-        return _load_dataset(str(manifest))
+        return str(manifest)
 
     # count how many frames are in the recordings directory
     frames = _all_frames(recordings_root)
@@ -56,7 +56,7 @@ def build_dataset(
         steering = re_match.group("steering")
         steerings.append(action.STEERING_LABELS_MAP[steering])
 
-        img = process_image_from_path(str(p), size)
+        img = process_from_path(str(p), size)
         images.append(img)
 
     with tqdm.tqdm(total=1, desc="Saving dataset") as pbar:
@@ -69,17 +69,9 @@ def build_dataset(
 
         pbar.update(1)
 
-    return _load_dataset(str(manifest))
+    return str(manifest)
 
-def _all_frames(root: Path) -> list[Path]:
-    """Every file whose **name** matches FRAME_RE (any depth)."""
-    return sorted(p for p in root.rglob("*") if FRAME_RE.match(p.name))
-
-def _newest_mtime(root: Path) -> float:
-    """Most recent mtime among all frame files."""
-    return max(p.stat().st_mtime for p in _all_frames(root))
-
-def _load_dataset(npz_path: str) -> data.TensorDataset:
+def load_dataset(npz_path: str) -> data.TensorDataset:
     """
     Loads a dataset from a .npz file.
     """
@@ -95,3 +87,11 @@ def _load_dataset(npz_path: str) -> data.TensorDataset:
         pbar.update(1)
 
     return dataset
+
+def _all_frames(root: Path) -> list[Path]:
+    """Every file whose **name** matches FRAME_RE (any depth)."""
+    return sorted(p for p in root.rglob("*") if FRAME_RE.match(p.name))
+
+def _newest_mtime(root: Path) -> float:
+    """Most recent mtime among all frame files."""
+    return max(p.stat().st_mtime for p in _all_frames(root))

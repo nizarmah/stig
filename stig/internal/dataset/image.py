@@ -6,22 +6,17 @@ from typing import Tuple
 
 import base64, cv2, numpy as np, torch
 
-def process_image_from_base64(
-    image_b64: str,
+def process_from_bytes(
+    img_bytes: bytes,
     frame_size: Tuple[int, int],
     device: str
 ) -> torch.Tensor:
     """
-    Process a base64 encoded image for model inference.
+    Process an image for model inference.
     """
-    try:
-        buf = base64.b64decode(image_b64.split(",")[-1], validate=True)
-    except Exception as e:
-        raise ValueError(f"Invalid base64 image: {str(e)}")
-
-    img = cv2.imdecode(np.frombuffer(buf, np.uint8), cv2.IMREAD_GRAYSCALE)
+    img = cv2.imdecode(np.frombuffer(img_bytes, np.uint8), cv2.IMREAD_GRAYSCALE)
     if img is None:
-        raise ValueError(f"Failed to decode image: {image_b64}")
+        raise ValueError(f"Failed to decode image")
 
     img = resize_image(
       img,
@@ -31,7 +26,7 @@ def process_image_from_base64(
 
     return img
 
-def process_image_from_path(
+def process_from_path(
     image_path: str,
     frame_size: Tuple[int, int]
 ) -> np.ndarray:

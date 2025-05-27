@@ -10,11 +10,8 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from stig.internal.env import env
-from stig.internal.dataset.image import process_image_from_base64, image_to_tensor
+from stig.internal.dataset.image import process_from_bytes, to_tensor
 from stig.internal.game.action import THROTTLE_VALUES_MAP, STEERING_VALUES_MAP
-
-class ActReq(BaseModel):
-    image_b64: str = Field(description="Base-64 JPEG/PNG bytes")
 
 class ActResp(BaseModel):
     throttle: str
@@ -38,21 +35,17 @@ def create_app(
     # Create FastAPI app.
     app = FastAPI(title="Stig Autopilot")
 
-    @app.post("/act", response_model=ActResp)
-    async def act(req: ActReq) -> ActResp:
-        # Process the base64 image.
+    @app.post("/act")
+    async def act(img_bytes: bytes) -> ActResp:
+        # Process the image.
         try:
-            img = process_image_from_base64(
-                req.image_b64,
-                frame_size,
-                device,
-            )
+            img = process_from_bytes(img_bytes, frame_size, device)
         except Exception as e:
             raise HTTPException(status_code=400, detail=str(e))
 
         # Predict the action.
         try:
-            tensor = image_to_tensor(img, device)
+            tensor = to_tensor(img, device)
             throttle_logits, steering_logits = model(tensor)
             throttle_id = int(throttle_logits.argmax())
             steering_id = int(steering_logits.argmax())

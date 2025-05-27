@@ -8,7 +8,7 @@ from typing import Tuple
 import tqdm, torch, torch.nn as nn, torch.utils.data as data
 
 from stig.internal.env import env
-from stig.internal.dataset.dataset import build_dataset
+from stig.internal.dataset.dataset import build_dataset, load_dataset
 from stig.internal.model.model import StigNet
 
 def train(
@@ -22,16 +22,19 @@ def train(
     learning_rate: float,
     device: str,
 ):
-    # create the dataset
-    dataset = build_dataset(model_name, datasets_dir, recordings_dir, frame_size)
+    # Create the dataset.
+    dataset_path = build_dataset(model_name, datasets_dir, recordings_dir, frame_size)
+
+    # Load the dataset.
+    dataset = load_dataset(dataset_path)
     dataloader = data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
-    # create the model
+    # Create the model.
     net = StigNet(frame_size).to(device)
     opt = torch.optim.Adam(net.parameters(), learning_rate)
     ce = nn.CrossEntropyLoss()
 
-    # train the model
+    # Train the model.
     for ep in range(epochs):
         tot = tc = sc = 0
 
@@ -53,7 +56,7 @@ def train(
           f"steering_acc={sc/tot:.3f}\t"
         )
 
-    # save the model
+    # Save the model.
     model_path = Path(models_dir) / f"{model_name}.pt"
     torch.jit.script(net).save(str(model_path))
     print(f"✅ saved {model_path}")
