@@ -8,6 +8,12 @@ import (
 
 // Env represents the environment variables for the application.
 type Env struct {
+	// AgentDebug is whether to debug the agent client.
+	AgentDebug bool
+	// AgentURL is the URL of the agent to use.
+	AgentURL string
+	// AgentTimeout is the timeout for the agent to act.
+	AgentTimeout time.Duration
 	// BrowserWSURL is the URL of the browser to control.
 	BrowserWSURL string
 	// FramesPerSecond is the frames per second of the game loop.
@@ -28,6 +34,21 @@ type Env struct {
 
 // NewEnv creates a new Env instance.
 func NewEnv() (*Env, error) {
+	agentDebug, err := env.LookupBool("AGENT_DEBUG")
+	if err != nil {
+		return nil, err
+	}
+
+	agentURL, err := env.Lookup("AGENT_URL")
+	if err != nil {
+		return nil, err
+	}
+
+	agentTimeout, err := env.LookupDuration("AGENT_TIMEOUT", time.Second)
+	if err != nil {
+		return nil, err
+	}
+
 	browserWSURL, err := env.Lookup("BROWSER_WS_URL")
 	if err != nil {
 		return nil, err
@@ -69,6 +90,9 @@ func NewEnv() (*Env, error) {
 	}
 
 	return &Env{
+		AgentDebug:       agentDebug,
+		AgentURL:         agentURL,
+		AgentTimeout:     agentTimeout,
 		BrowserWSURL:     browserWSURL,
 		FramesPerSecond:  framesPerSecond,
 		GameDebug:        gameDebug,

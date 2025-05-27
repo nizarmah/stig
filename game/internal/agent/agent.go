@@ -2,80 +2,81 @@
 package agent
 
 import (
-	"context"
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"log"
+	"net/http"
 	"time"
 
-	"github.com/nizarmah/stig/game/internal/brain"
-	"github.com/nizarmah/stig/game/internal/controller"
 	"github.com/nizarmah/stig/game/internal/game"
-	"github.com/nizarmah/stig/game/internal/screen"
 )
+
+// ClientConfiguration is the configuration for the agent.
+type ClientConfiguration struct {
+	// APIURL is the URL of the agent API.
+	APIURL string
+	// Debug is whether to debug the agent client.
+	Debug bool
+	// Timeout is the timeout for the agent to act.
+	Timeout time.Duration
+}
 
 // Client is the agent that plays the game.
 type Client struct {
-	controller *controller.Client
-	screen     *screen.Client
-	brain      *brain.Brain
+	apiURL  string
+	debug   bool
+	timeout time.Duration
 }
 
 // NewClient creates a new client.
-func NewClient(
-	controller *controller.Client,
-	screen *screen.Client,
-	brain *brain.Brain,
-) *Client {
+func NewClient(cfg ClientConfiguration) *Client {
 	return &Client{
-		controller: controller,
-		screen:     screen,
-		brain:      brain,
+		apiURL:  cfg.APIURL,
+		debug:   cfg.Debug,
+		timeout: cfg.Timeout,
 	}
 }
 
-// SetBrain replaces the current brain with a new one.
-func (c *Client) SetBrain(b *brain.Brain) {
-	c.brain = b
-}
+// Act returns the action to take on the given frame.
+func (c *Client) Act(frame []byte) (game.Action, error) {
+	url := fmt.Sprintf("%s/act", c.apiURL)
 
-// Run runs the agent.
-func (c *Client) Run(ctx context.Context, interval time.Duration) error {
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
+	// Prepare the request.
+	req, _ := http.NewRequest("POST", url, bytes.NewReader(frame))
+	req.Header.Set("Content-Type", "image/jpeg")
 
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-
-		case <-ticker.C:
-			if err := c.doRun(ctx); err != nil {
-				return err
-			}
+	// Send the request.
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		if c.debug {
+			log.Println(fmt.Sprintf("agent failed to send request: %v", err))
 		}
-	}
-}
 
-// doRun runs the agent.
-func (c *Client) doRun(ctx context.Context) error {
-	img, err := c.screen.Peek(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to peek screen: %w", err)
+		return game.Action{}, fmt.Errorf("failed to send request: %w", err)
 	}
 
-	// Decide the next action using the brain.
-	throttle, steering, err := c.brain.Predict(img)
-	if err != nil {
-		return fmt.Errorf("brain prediction failed: %w", err)
+	if resp.StatusCode != http.StatusOK {
+		if c.debug {
+			log.Println(fmt.Sprintf("agent failed to send request: %v", resp.StatusCode))
+		}
+
+		return game.Action{}, fmt.Errorf("failed to send request: %v", resp.StatusCode)
 	}
 
-	action := game.Action{
-		Throttle: throttle,
-		Steering: steering,
+	// Parse the response.
+	action := game.Action{}
+	if err := json.NewDecoder(resp.Body).Decode(&action); err != nil {
+		if c.debug {
+			log.Println(fmt.Sprintf("agent failed to decode response: body: %s, err: %v", resp.Body, err))
+		}
+
+		return game.Action{}, fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	if err := c.controller.Apply(action); err != nil {
-		return fmt.Errorf("failed to send action: %w", err)
+	if c.debug {
+		log.Println(fmt.Sprintf("agent action: %+v", action))
 	}
 
-	return nil
+	return action, nil
 }
