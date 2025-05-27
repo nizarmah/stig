@@ -27,10 +27,11 @@ For now, you can check the README of each component to learn how to run it.
 - [`game/`][repo-game] - The game client.
     * Used to record gameplay for supervised learning.
     * Used to play the game with the trained AI.
-- [`track/`][repo-track] - The training track.
+- [`stig/`][repo-stig] - The stig client.
     * Used to train an AI model using supervised learning.
+    * Used to autopilot the driving using an AI model.
 
 [shopify-drive]: https://www.shopify.com/ca/editions/summer2025/drive
 
 [repo-game]: ./game
-[repo-track]: ./track
+[repo-track]: ./stig
