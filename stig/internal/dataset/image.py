@@ -55,7 +55,7 @@ def resize_image(
     """
     return cv2.resize(img, (width, height), cv2.INTER_AREA)
 
-def image_to_tensor(
+def to_tensor(
     img: np.ndarray,
     device: str,
 ) -> torch.Tensor:
