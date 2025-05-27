@@ -4,7 +4,7 @@ Package image provides image processing utilities.
 
 from typing import Tuple
 
-import base64, cv2, numpy as np, torch
+import cv2, numpy as np, torch
 
 def process_from_bytes(
     img_bytes: bytes,
@@ -62,5 +62,4 @@ def to_tensor(
     """
     Convert a numpy image array to a PyTorch tensor.
     """
-    tensor = torch.from_numpy(img).float()[None, None] / 255.0
-    return tensor.to(device)
+    return torch.from_numpy(img)[None, None].to(device) # (1,1,H,W) uint8

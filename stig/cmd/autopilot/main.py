@@ -26,11 +26,14 @@ def create_app(
     """
     Autopilot creates an API server to interact with the AI model.
     """
-    # Load the model.
+    # Create the model path.
     model_path = Path(models_dir) / f"{model_name}.pt"
     if not model_path.exists():
         raise FileNotFoundError(f"Model {model_path} not found")
+
+    # Load the model.
     model = torch.jit.load(str(model_path)).to(device)
+    model.eval()
 
     # Create FastAPI app.
     app = FastAPI(title="Stig Autopilot")

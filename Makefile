@@ -41,7 +41,7 @@ game-record:
 
 # run the autopilot
 stig-autopilot:
-	@docker compose run --rm --build stig-autopilot
+	@docker compose up --build --force-recreate --detach stig-autopilot
 
 # train the model
 stig-train:
