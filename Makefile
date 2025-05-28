@@ -1,4 +1,4 @@
-.PHONY: env game-play game-record stig-train stig-drive
+.PHONY: env game-play game-record stig-train stig-drive stig-novice
 
 # copy a file if it doesn't exist
 define copy-file
@@ -46,3 +46,13 @@ stig-autopilot:
 # train the model
 stig-train:
 	@docker compose run --rm --build stig-train
+
+# download pre-trained novice model
+stig-novice:
+	@if [ ! -f assets/models/novice.pt ]; then \
+		echo "📥 Downloading novice model..."; \
+		curl -L -o assets/models/novice.pt https://github.com/nizarmah/stig/releases/download/v0.1.0/novice.pt; \
+		echo "✅ assets/models/novice.pt"; \
+	else \
+		echo "✅ assets/models/novice.pt (already exists)"; \
+	fi
