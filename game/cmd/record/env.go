@@ -28,6 +28,10 @@ type Env struct {
 	ScreenDebug bool
 	// ScreenResolution is the resolution of the screen.
 	ScreenResolution int
+	// WindowHeight is the height of the window.
+	WindowHeight int
+	// WindowWidth is the width of the window.
+	WindowWidth int
 }
 
 // NewEnv creates a new Env instance.
@@ -82,6 +86,16 @@ func NewEnv() (*Env, error) {
 		return nil, err
 	}
 
+	windowHeight, err := env.LookupInt("WINDOW_HEIGHT")
+	if err != nil {
+		return nil, err
+	}
+
+	windowWidth, err := env.LookupInt("WINDOW_WIDTH")
+	if err != nil {
+		return nil, err
+	}
+
 	return &Env{
 		BrowserWSURL:     browserWSURL,
 		ControllerDebug:  controllerDebug,
@@ -93,5 +107,7 @@ func NewEnv() (*Env, error) {
 		RecordingsDir:    recordingsDir,
 		ScreenDebug:      screenDebug,
 		ScreenResolution: screenResolution,
+		WindowHeight:     windowHeight,
+		WindowWidth:      windowWidth,
 	}, nil
 }

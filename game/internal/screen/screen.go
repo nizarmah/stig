@@ -21,6 +21,10 @@ type ClientConfiguration struct {
 	Page *rod.Page
 	// Resolution is the resolution of the screen (0 to 100).
 	Resolution int
+	// WindowHeight is the height of the window.
+	WindowHeight int
+	// WindowWidth is the width of the window.
+	WindowWidth int
 }
 
 // Client is the screen of the game.
@@ -31,14 +35,20 @@ type Client struct {
 	page *rod.Page
 	// Resolution is the resolution of the screen (0 to 100).
 	resolution int
+	// WindowHeight is the height of the window.
+	windowHeight int
+	// WindowWidth is the width of the window.
+	windowWidth int
 }
 
 // NewClient creates a new client.
 func NewClient(cfg ClientConfiguration) *Client {
 	return &Client{
-		debug:      cfg.Debug,
-		page:       cfg.Page,
-		resolution: cfg.Resolution,
+		debug:        cfg.Debug,
+		page:         cfg.Page,
+		resolution:   cfg.Resolution,
+		windowHeight: cfg.WindowHeight,
+		windowWidth:  cfg.WindowWidth,
 	}
 }
 
@@ -47,11 +57,18 @@ func (c *Client) Peek(ctx context.Context) ([]byte, error) {
 	imageData, err := c.page.
 		Context(ctx).
 		Screenshot(true, &proto.PageCaptureScreenshot{
-			Format:                proto.PageCaptureScreenshotFormatJpeg,
-			Quality:               &[]int{c.resolution}[0],
-			OptimizeForSpeed:      true,
-			FromSurface:           true,
+			Format:  proto.PageCaptureScreenshotFormatJpeg,
+			Quality: &c.resolution,
+			Clip: &proto.PageViewport{
+				X:      0,
+				Y:      0,
+				Width:  float64(c.windowWidth),
+				Height: float64(c.windowHeight),
+				Scale:  1,
+			},
+			FromSurface:           false,
 			CaptureBeyondViewport: false,
+			OptimizeForSpeed:      true,
 		})
 	if err != nil {
 		return nil, fmt.Errorf("failed to take snapshot: %w", err)

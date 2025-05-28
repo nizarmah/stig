@@ -36,6 +36,8 @@ func main() {
 		Debug:        env.GameDebug,
 		FPS:          env.FramesPerSecond,
 		GameURL:      env.GameURL,
+		WindowHeight: env.WindowHeight,
+		WindowWidth:  env.WindowWidth,
 	}, env.GameTimeout)
 	if err != nil {
 		log.Fatalf("failed to create game client: %v", err)
@@ -53,9 +55,11 @@ func main() {
 
 	// Create the screen client.
 	screenClient := screen.NewClient(screen.ClientConfiguration{
-		Debug:      env.ScreenDebug,
-		Page:       gameClient.Page,
-		Resolution: env.ScreenResolution,
+		Debug:        env.ScreenDebug,
+		Page:         gameClient.Page,
+		Resolution:   env.ScreenResolution,
+		WindowHeight: env.WindowHeight,
+		WindowWidth:  env.WindowWidth,
 	})
 
 	// Create the session.

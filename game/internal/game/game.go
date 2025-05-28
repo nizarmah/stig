@@ -21,6 +21,10 @@ type ClientConfig struct {
 	FPS int
 	// GameURL is the URL of the game.
 	GameURL string
+	// WindowHeight is the height of the window.
+	WindowHeight int
+	// WindowWidth is the width of the window.
+	WindowWidth int
 }
 
 // Client is a client for the browser.
@@ -48,7 +52,14 @@ func NewClient(
 		return nil, fmt.Errorf("failed to connect to browser: %w", err)
 	}
 
-	page, err := openGamePage(ctx, browser, config.GameURL, timeout)
+	page, err := openGamePage(
+		ctx,
+		browser,
+		config.GameURL,
+		config.WindowHeight,
+		config.WindowWidth,
+		timeout,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open game page: %w", err)
 	}
@@ -78,6 +89,8 @@ func openGamePage(
 	ctx context.Context,
 	browser *rod.Browser,
 	gameURL string,
+	windowHeight int,
+	windowWidth int,
 	timeout time.Duration,
 ) (*rod.Page, error) {
 	// Open the game page.
@@ -87,6 +100,21 @@ func openGamePage(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create page: %w", err)
 	}
+
+	// Set the viewport.
+	page.SetViewport(&proto.EmulationSetDeviceMetricsOverride{
+		Viewport: &proto.PageViewport{
+			Width:  float64(windowWidth),
+			Height: float64(windowHeight),
+			Scale:  1,
+		},
+		Width:             windowWidth,
+		Height:            windowHeight,
+		ScreenWidth:       &windowWidth,
+		ScreenHeight:      &windowHeight,
+		DeviceScaleFactor: 1,
+		Mobile:            false,
+	})
 
 	loadCtx, loadCancel := context.WithTimeout(ctx, timeout)
 	defer loadCancel()
